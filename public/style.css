@@ -1,0 +1,121 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #080808;
+  color: #fff;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+header {
+  padding: 20px 16px 12px;
+  text-align: center;
+}
+
+h1 {
+  font-size: 1rem;
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.status {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #444;
+  letter-spacing: 0.06em;
+  transition: color 0.3s;
+}
+.status.on  { color: #4cff80; }
+.status.off { color: #ff4444; }
+
+main {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 40px;
+}
+
+/* --- live stream --- */
+.stream-wrap {
+  position: relative;
+  width: 100%;
+  background: #111;
+  line-height: 0;
+}
+
+.stream-wrap img {
+  width: 100%;
+  display: block;
+  min-height: 120px;
+  object-fit: cover;
+}
+
+.live-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(220, 30, 30, 0.85);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+/* --- hint text --- */
+.hint {
+  font-size: 0.72rem;
+  color: #444;
+  letter-spacing: 0.06em;
+}
+
+/* --- LED grid --- */
+.led-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  padding: 0 24px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.led-btn {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid #2a2a2a;
+  background: #131313;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.12s, box-shadow 0.12s, transform 0.08s;
+  outline: none;
+}
+
+.led-btn:active {
+  transform: scale(0.88);
+}
+
+.led-btn.on {
+  background: #ffe44d;
+  border-color: #ffe44d;
+  box-shadow:
+    0 0 6px  #ffe44d,
+    0 0 18px #ffaa00,
+    0 0 42px rgba(255, 160, 0, 0.35);
+}
+
+/* --- viewer count --- */
+.viewers {
+  font-size: 0.68rem;
+  color: #2e2e2e;
+  letter-spacing: 0.05em;
+}
