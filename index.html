@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Light on the Net</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Light on the Net</h1>
+    <p id="status" class="status">接続中...</p>
+  </header>
+
+  <main>
+    <div class="stream-wrap">
+      <img id="stream" src="/stream" alt="Live" />
+      <span class="live-badge">LIVE</span>
+    </div>
+
+    <p class="hint">タップしてLEDを操作</p>
+
+    <div id="grid" class="led-grid"></div>
+
+    <p class="viewers"><span id="count">0</span> 人が同時接続中</p>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

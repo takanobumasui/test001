@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>画像グリッド・ストレッチツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f2f2f7;
+      color: #1c1c1e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e5e5ea;
+      padding: 16px 24px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header h1 span { color: #007aff; }
+    header p { font-size: 12px; color: #8e8e93; }
+
+    .layout {
+      display: flex;
+      gap: 0;
+      min-height: calc(100vh - 57px);
+    }
+
+    /* ---- Control Panel ---- */
+    .panel {
+      width: 300px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e5e5ea;
+      padding: 20px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8e8e93;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 10px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn:active { opacity: .75; }
+    .btn-dark { background: #1c1c1e; color: #fff; }
+    .btn-gray { background: #f2f2f7; color: #1c1c1e; margin-top: 8px; }
+    .btn-blue { background: #007aff; color: #fff; }
+
+    .row { display: flex; gap: 8px; }
+    .row .btn { flex: 1; }
+
+    /* Slider rows */
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .slider-header span:last-child {
+      font-weight: 600;
+      color: #007aff;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e5e5ea;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #007aff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      cursor: pointer;
+    }
+
+    /* Checkbox rows */
+    .check-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    input[type=checkbox] {
+      width: 18px; height: 18px;
+      accent-color: #007aff;
+    }
+
+    /* Effect badge */
+    .effect-badge {
+      display: inline-block;
+      background: #007aff;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-left: 6px;
+    }
+
+    /* ---- Canvas Area ---- */
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      background: #f2f2f7;
+      position: relative;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      max-width: 100%;
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 75vh;
+      border-radius: 8px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
+    }
+
+    .drop-hint {
+      width: 480px;
+      height: 360px;
+      border: 2px dashed #c7c7cc;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #8e8e93;
+      font-size: 15px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .drop-hint:hover, .drop-hint.drag-over {
+      border-color: #007aff;
+      background: #f0f6ff;
+    }
+    .drop-hint svg { opacity: .4; }
+
+    .hint-text { font-size: 13px; color: #c7c7cc; }
+
+    #fileInput { display: none; }
+
+    /* Status overlay */
+    .processing {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #007aff;
+      display: none;
+    }
+
+    @media (max-width: 700px) {
+      .layout { flex-direction: column; }
+      .panel { width: 100%; border-right: none; border-bottom: 1px solid #e5e5ea; }
+      .canvas-area { padding: 16px; }
+      .drop-hint { width: 100%; height: 220px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>画像グリッド <span>ストレッチツール</span></h1>
+  <p>スライダーでリアルタイムにエフェクトを調整</p>
+</header>
+
+<div class="layout">
+
+  <!-- ===== Control Panel ===== -->
+  <div class="panel">
+
+    <!-- Image ops -->
+    <div>
+      <div class="section-label">画像操作</div>
+      <button class="btn btn-dark" onclick="document.getElementById('fileInput').click()">
+        ＋ 画像をアップロード
+      </button>
+      <input type="file" id="fileInput" accept="image/*">
+      <button class="btn btn-gray" onclick="rotateImage()">回転 90° ↻</button>
+    </div>
+
+    <!-- Scale -->
+    <div>
+      <div class="section-label">表示サイズ</div>
+      <div class="slider-row">
+        <div class="slider-header"><span>画像スケール</span><span id="scaleVal">100%</span></div>
+        <input type="range" id="scale" min="20" max="150" value="100">
+      </div>
+    </div>
+
+    <!-- Effect mode -->
+    <div>
+      <div class="section-label">エフェクトモード</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-blue" id="modeStretch" onclick="setMode('stretch')" style="flex:1;padding:8px;font-size:13px">グリッドストレッチ</button>
+        <button class="btn btn-gray" id="modeGlitch" onclick="setMode('glitch')" style="flex:1;padding:8px;font-size:13px">グリッチ</button>
+        <button class="btn btn-gray" id="modeMosaic" onclick="setMode('mosaic')" style="flex:1;padding:8px;font-size:13px">モザイク</button>
+        <button class="btn btn-gray" id="modeWave" onclick="setMode('wave')" style="flex:1;padding:8px;font-size:13px">ウェーブ</button>
+      </div>
+    </div>
+
+    <!-- Grid params -->
+    <div>
+      <div class="section-label">グリッドパラメータ</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="slider-row">
+          <div class="slider-header"><span>グリッド複雑度</span><span id="complexityVal">50</span></div>
+          <input type="range" id="complexity" min="2" max="100" value="50">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header"><span>グリッド密度</span><span id="densityVal">50</span></div>
+          <input type="range" id="density" min="1" max="100" value="50">
+        </div>
+      </div>
+    </div>
+
+    <!-- Stretch options -->
+    <div>
+      <div class="section-label">ストレッチオプション</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="slider-row">
+          <div class="slider-header"><span>ストレッチ強度</span><span id="intensityVal">74%</span></div>
+          <input type="range" id="intensity" min="0" max="100" value="74">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>ストレッチバランス</span>
+            <span id="balanceVal">水平0 / 垂直100</span>
+          </div>
+          <input type="range" id="balance" min="0" max="100" value="100">
+        </div>
+      </div>
+    </div>
+
+    <!-- Display settings -->
+    <div>
+      <div class="section-label">表示設定</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="check-row">
+          <span>グリッド線を表示</span>
+          <input type="checkbox" id="showGrid" checked>
+        </div>
+        <div class="check-row">
+          <span>ラベルを表示<span class="effect-badge">AI</span></span>
+          <input type="checkbox" id="showLabels" checked>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div>
+      <div class="section-label">エクスポート</div>
+      <div class="row">
+        <button class="btn btn-dark" onclick="exportImg('png')">PNG 保存</button>
+        <button class="btn btn-gray" onclick="exportImg('jpg')">JPG 保存</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== Canvas Area ===== -->
+  <div class="canvas-area" id="dropZone">
+    <div class="canvas-wrap" id="canvasWrap" style="display:none">
+      <canvas id="canvas"></canvas>
+      <div class="processing" id="processing">処理中...</div>
+    </div>
+
+    <div class="drop-hint" id="dropHint" onclick="document.getElementById('fileInput').click()">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <span>画像をドロップ、またはクリックして選択</span>
+      <span class="hint-text">JPEG / PNG / WebP 対応</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---- State ----
+let srcCanvas = document.createElement('canvas');
+let srcCtx = srcCanvas.getContext('2d');
+let originalImage = null;
+let rotation = 0;
+let currentMode = 'stretch';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// AI-style region labels
+const LABELS = [
+  'ORGANIC', 'CRISP', 'BOTANICAL', 'ISOLATED', 'TREELIKE',
+  'VERDANT', 'CLUSTERED', 'SCULPTURAL', 'LAYERED', 'TEXTURED',
+  'DENSE', 'VIBRANT', 'NATURAL', 'GEOMETRIC', 'ORGANIC',
+  'COLORFUL', 'DYNAMIC', 'STRUCTURED', 'COMPLEX', 'MINIMAL'
+];
+let labelPositions = [];
+
+// ---- File input ----
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+// ---- Drag & drop ----
+const dropZone = document.getElementById('dropZone');
+const dropHint = document.getElementById('dropHint');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropHint.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropHint.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropHint.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    originalImage = img;
+    rotation = 0;
+    generateLabels();
+    drawToSrc();
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+function generateLabels() {
+  labelPositions = [];
+  const count = 20;
+  for (let i = 0; i < count; i++) {
+    labelPositions.push({
+      x: 5 + Math.random() * 85,
+      y: 5 + Math.random() * 85,
+      label: LABELS[i % LABELS.length],
+      value: Math.floor(20 + Math.random() * 60)
+    });
+  }
+}
+
+function drawToSrc() {
+  if (!originalImage) return;
+  const scale = getSliderVal('scale') / 100;
+  let w = originalImage.width, h = originalImage.height;
+
+  // Apply rotation dimensions
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+  const rw = Math.round(w * cos + h * sin);
+  const rh = Math.round(w * sin + h * cos);
+
+  srcCanvas.width = Math.round(rw * scale);
+  srcCanvas.height = Math.round(rh * scale);
+  srcCtx.save();
+  srcCtx.translate(srcCanvas.width / 2, srcCanvas.height / 2);
+  srcCtx.rotate(rad);
+  srcCtx.drawImage(originalImage, -w * scale / 2, -h * scale / 2, w * scale, h * scale);
+  srcCtx.restore();
+
+  applyEffect();
+}
+
+function rotateImage() {
+  rotation = (rotation + 90) % 360;
+  drawToSrc();
+}
+
+// ---- Effect modes ----
+function setMode(mode) {
+  currentMode = mode;
+  ['stretch','glitch','mosaic','wave'].forEach(m => {
+    const btn = document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1));
+    btn.className = m === mode ? 'btn btn-blue' : 'btn btn-gray';
+  });
+  applyEffect();
+}
+
+function applyEffect() {
+  if (!originalImage) return;
+  const W = srcCanvas.width, H = srcCanvas.height;
+  if (W === 0 || H === 0) return;
+
+  canvas.width = W;
+  canvas.height = H;
+
+  document.getElementById('canvasWrap').style.display = 'block';
+  document.getElementById('dropHint').style.display = 'none';
+
+  const complexity = getSliderVal('complexity');
+  const density    = getSliderVal('density');
+  const intensity  = getSliderVal('intensity') / 100;
+  const balance    = getSliderVal('balance') / 100; // 0=horiz, 1=vert
+  const showGrid   = document.getElementById('showGrid').checked;
+  const showLabels = document.getElementById('showLabels').checked;
+
+  const srcData = srcCtx.getImageData(0, 0, W, H);
+
+  switch (currentMode) {
+    case 'stretch': effectStretch(srcData, complexity, density, intensity, balance); break;
+    case 'glitch':  effectGlitch(srcData, complexity, intensity, balance); break;
+    case 'mosaic':  effectMosaic(srcData, complexity); break;
+    case 'wave':    effectWave(srcData, intensity, balance); break;
+  }
+
+  if (showGrid) drawGrid(complexity, density, balance);
+  if (showLabels) drawLabels(W, H);
+}
+
+// -- Grid Stretch effect --
+function effectStretch(srcData, complexity, density, intensity, balance) {
+  const W = canvas.width, H = canvas.height;
+  const out = ctx.createImageData(W, H);
+  const src = srcData.data;
+  const dst = out.data;
+
+  const cols = Math.max(2, Math.round(complexity * 0.6));
+  const rows = Math.max(2, Math.round(complexity * 0.6));
+  const cellW = W / cols;
+  const cellH = H / rows;
+
+  // First pass: copy original
+  dst.set(src);
+
+  // Vertical stretch pass (balance → how much vertical vs horizontal)
+  const vertStrength = intensity * balance;
+  const horizStrength = intensity * (1 - balance);
+
+  for (let col = 0; col < cols; col++) {
+    const cx = Math.floor(col * cellW + cellW / 2);
+    const stripW = Math.max(1, Math.round(cellW * (density / 100) * 0.8));
+
+    if (vertStrength > 0.01) {
+      // Sample a row of pixels at the center and stretch vertically
+      const sampleY = Math.floor(H * (col / cols));
+      for (let y = 0; y < H; y++) {
+        const srcY = Math.round(sampleY + (y - sampleY) * (1 - vertStrength * 0.95));
+        const clampY = Math.max(0, Math.min(H - 1, srcY));
+        for (let dx = -stripW; dx <= stripW; dx++) {
+          const x = cx + dx;
+          if (x < 0 || x >= W) continue;
+          const srcIdx = (clampY * W + x) * 4;
+          const dstIdx = (y * W + x) * 4;
+          const t = vertStrength * (1 - Math.abs(dx) / (stripW + 1));
+          dst[dstIdx]     = lerp(src[srcIdx],     src[srcIdx],     t) | 0;
+          dst[dstIdx + 1] = lerp(src[srcIdx + 1], src[srcIdx + 1], t) | 0;
+          dst[dstIdx + 2] = lerp(src[srcIdx + 2], src[srcIdx + 2], t) | 0;
+          // smear the sampled color
+          dst[dstIdx]     = lerp(src[dstIdx],     src[srcIdx],     t) | 0;
+          dst[dstIdx + 1] = lerp(src[dstIdx + 1], src[srcIdx + 1], t) | 0;
+          dst[dstIdx + 2] = lerp(src[dstIdx + 2], src[srcIdx + 2], t) | 0;
+          dst[dstIdx + 3] = 255;
+        }
+      }
+    }
+  }
+
+  for (let row = 0; row < rows; row++) {
+    const cy = Math.floor(row * cellH + cellH / 2);
+    const stripH = Math.max(1, Math.round(cellH * (density / 100) * 0.8));
+
+    if (horizStrength > 0.01) {
+      const sampleX = Math.floor(W * (row / rows));
+      for (let x = 0; x < W; x++) {
+        const srcX = Math.round(sampleX + (x - sampleX) * (1 - horizStrength * 0.95));
+        const clampX = Math.max(0, Math.min(W - 1, srcX));
+        for (let dy = -stripH; dy <= stripH; dy++) {
+          const y = cy + dy;
+          if (y < 0 || y >= H) continue;
+          const srcIdx = (y * W + clampX) * 4;
+          const dstIdx = (y * W + x) * 4;
+          const t = horizStrength * (1 - Math.abs(dy) / (stripH + 1));
+          dst[dstIdx]     = lerp(src[dstIdx],     src[srcIdx],     t) | 0;
+          dst[dstIdx + 1] = lerp(src[dstIdx + 1], src[srcIdx + 1], t) | 0;
+          dst[dstIdx + 2] = lerp(src[dstIdx + 2], src[srcIdx + 2], t) | 0;
+          dst[dstIdx + 3] = 255;
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(out, 0, 0);
+}
+
+// -- Glitch effect --
+function effectGlitch(srcData, complexity, intensity, balance) {
+  const W = canvas.width, H = canvas.height;
+  ctx.putImageData(srcData, 0, 0);
+
+  const slices = Math.round(3 + complexity / 10);
+  for (let i = 0; i < slices; i++) {
+    const y = Math.random() * H;
+    const h = Math.random() * H / slices * 2;
+    const shift = (Math.random() - 0.5) * W * intensity * 0.4 * (balance > 0.5 ? 1 : 0.2);
+    const vshift = (Math.random() - 0.5) * H * intensity * 0.2 * (balance < 0.5 ? 1 : 0.1);
+
+    const slice = ctx.getImageData(0, y, W, h);
+    ctx.putImageData(slice, shift, y + vshift);
+
+    // RGB channel offset
+    if (intensity > 0.3) {
+      const redShift = (Math.random() - 0.5) * 20 * intensity;
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.25 * intensity;
+      ctx.drawImage(canvas, redShift, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// -- Mosaic effect --
+function effectMosaic(srcData, complexity) {
+  const W = canvas.width, H = canvas.height;
+  const size = Math.max(2, Math.round((101 - complexity) * 0.3));
+  ctx.putImageData(srcData, 0, 0);
+  const tmp = document.createElement('canvas');
+  tmp.width = W; tmp.height = H;
+  const tctx = tmp.getContext('2d');
+  tctx.putImageData(srcData, 0, 0);
+
+  ctx.clearRect(0, 0, W, H);
+  // Scale down then up to create mosaic
+  const cols = Math.floor(W / size);
+  const rows = Math.floor(H / size);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const sx = c * size + Math.floor(size / 2);
+      const sy = r * size + Math.floor(size / 2);
+      const px = srcData.data[((sy * W + sx) * 4)];
+      const py = srcData.data[((sy * W + sx) * 4) + 1];
+      const pz = srcData.data[((sy * W + sx) * 4) + 2];
+      ctx.fillStyle = `rgb(${px},${py},${pz})`;
+      ctx.fillRect(c * size, r * size, size, size);
+    }
+  }
+}
+
+// -- Wave effect --
+function effectWave(srcData, intensity, balance) {
+  const W = canvas.width, H = canvas.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = W; tmp.height = H;
+  const tctx = tmp.getContext('2d');
+  tctx.putImageData(srcData, 0, 0);
+
+  ctx.clearRect(0, 0, W, H);
+  const ampH = intensity * 30 * (1 - balance);
+  const ampV = intensity * 30 * balance;
+  const freqH = 0.02 + balance * 0.03;
+  const freqV = 0.02 + (1 - balance) * 0.03;
+
+  for (let y = 0; y < H; y++) {
+    const dx = ampH * Math.sin(y * freqH * Math.PI);
+    const dy = ampV * Math.sin(y * freqV * Math.PI * 0.5);
+    ctx.drawImage(tmp, 0, y, W, 1, dx, y + dy, W, 1);
+  }
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ---- Grid overlay ----
+function drawGrid(complexity, density, balance) {
+  const W = canvas.width, H = canvas.height;
+  const cols = Math.max(2, Math.round(complexity * 0.6));
+  const rows = Math.max(2, Math.round(complexity * 0.6));
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 0.5;
+
+  const vertOpacity = 0.2 + balance * 0.5;
+  const horizOpacity = 0.2 + (1 - balance) * 0.5;
+
+  ctx.strokeStyle = `rgba(255,255,255,${vertOpacity})`;
+  for (let c = 1; c < cols; c++) {
+    const x = (W / cols) * c;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  ctx.strokeStyle = `rgba(255,255,255,${horizOpacity})`;
+  for (let r = 1; r < rows; r++) {
+    const y = (H / rows) * r;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ---- AI Labels overlay ----
+function drawLabels(W, H) {
+  ctx.save();
+  ctx.font = '10px monospace';
+
+  labelPositions.forEach(({ x, y, label, value }) => {
+    const px = x / 100 * W;
+    const py = y / 100 * H;
+
+    // Crosshair dot
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Line
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + 12, py - 8);
+    ctx.stroke();
+
+    // Label box
+    const text = `${label}\n${value}+`;
+    const tw = ctx.measureText(label).width + 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(px + 12, py - 20, tw, 22);
+
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, px + 16, py - 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(`${value}+`, px + 16, py - 1);
+  });
+
+  ctx.restore();
+}
+
+// ---- Slider wiring ----
+function getSliderVal(id) { return parseInt(document.getElementById(id).value, 10); }
+
+function wireSlider(id, labelId, fmt) {
+  const el = document.getElementById(id);
+  const lbl = document.getElementById(labelId);
+  el.addEventListener('input', () => {
+    lbl.textContent = fmt(el.value);
+    scheduleRender();
+  });
+}
+
+wireSlider('scale',      'scaleVal',      v => v + '%');
+wireSlider('complexity', 'complexityVal', v => v);
+wireSlider('density',    'densityVal',    v => v);
+wireSlider('intensity',  'intensityVal',  v => v + '%');
+wireSlider('balance',    'balanceVal',    v => `水平${100-v} / 垂直${v}`);
+
+['showGrid','showLabels'].forEach(id =>
+  document.getElementById(id).addEventListener('change', scheduleRender)
+);
+
+document.getElementById('scale').addEventListener('input', drawToSrc);
+
+let renderTimer = null;
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => {
+    if (currentMode === 'stretch' || currentMode === 'mosaic' || currentMode === 'wave')
+      applyEffect();
+    else
+      applyEffect();
+  }, 30);
+}
+
+// ---- Export ----
+function exportImg(type) {
+  const link = document.createElement('a');
+  link.download = `stretch-export.${type}`;
+  link.href = canvas.toDataURL(type === 'png' ? 'image/png' : 'image/jpeg', 0.92);
+  link.click();
+}
+</script>
+</body>
+</html>
