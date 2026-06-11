@@ -296,9 +296,10 @@
     <!-- Export -->
     <div>
       <div class="section-label">エクスポート</div>
-      <div class="row">
-        <button class="btn btn-dark" onclick="exportImg('png')">PNG 保存</button>
-        <button class="btn btn-gray" onclick="exportImg('jpg')">JPG 保存</button>
+      <button class="btn btn-dark" onclick="saveImage()">画像を保存 / 共有</button>
+      <div class="row" style="margin-top:8px">
+        <button class="btn btn-gray" onclick="exportImg('png')">PNG</button>
+        <button class="btn btn-gray" onclick="exportImg('jpg')">JPG</button>
       </div>
     </div>
 
@@ -709,9 +710,26 @@ function scheduleRender() {
 }
 
 // ---- Export ----
+async function saveImage() {
+  if (!originalImage) return;
+  canvas.toBlob(async (blob) => {
+    const file = new File([blob], 'effect.jpg', { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: '画像エフェクト' });
+      } catch (e) {
+        if (e.name !== 'AbortError') exportImg('jpg');
+      }
+    } else {
+      exportImg('jpg');
+    }
+  }, 'image/jpeg', 0.92);
+}
+
 function exportImg(type) {
+  if (!originalImage) return;
   const link = document.createElement('a');
-  link.download = `stretch-export.${type}`;
+  link.download = `effect.${type}`;
   link.href = canvas.toDataURL(type === 'png' ? 'image/png' : 'image/jpeg', 0.92);
   link.click();
 }
