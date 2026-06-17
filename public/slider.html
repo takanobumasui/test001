@@ -141,6 +141,7 @@
     .drop-hint small { font-size: 12px; color: #c7c7cc; }
 
     #fileInput { display: none; }
+    input[type=checkbox] { width: 18px; height: 18px; accent-color: #007aff; cursor: pointer; }
 
     @media (max-width: 680px) {
       .layout { flex-direction: column; }
@@ -219,6 +220,21 @@
       </div>
     </div>
 
+    <!-- 表示設定 -->
+    <div>
+      <div class="section-label">表示設定</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;justify-content:space-between;align-items:center;font-size:13px;cursor:pointer">
+          <span>グリッドを表示</span>
+          <input type="checkbox" id="showGrid" checked>
+        </label>
+        <label style="display:flex;justify-content:space-between;align-items:center;font-size:13px;cursor:pointer">
+          <span>ラベルを表示</span>
+          <input type="checkbox" id="showLabels" checked>
+        </label>
+      </div>
+    </div>
+
     <!-- 保存 -->
     <div>
       <div class="section-label">保存</div>
@@ -254,6 +270,23 @@ let originalImage = null;
 let rotation  = 0;
 let currentMode = 'glitch';
 
+const LABELS = [
+  'ORGANIC','CRISP','BOTANICAL','ISOLATED','TREELIKE',
+  'VERDANT','CLUSTERED','SCULPTURAL','LAYERED','TEXTURED',
+  'DENSE','VIBRANT','NATURAL','GEOMETRIC','COLORFUL',
+  'DYNAMIC','STRUCTURED','COMPLEX','MINIMAL','GLITCH'
+];
+let labelPositions = [];
+
+function generateLabels() {
+  labelPositions = LABELS.map((label, i) => ({
+    x: 5 + Math.random() * 85,
+    y: 5 + Math.random() * 85,
+    label,
+    value: Math.floor(20 + Math.random() * 60)
+  }));
+}
+
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 
@@ -278,6 +311,7 @@ function loadFile(file) {
   img.onload = () => {
     originalImage = img;
     rotation = 0;
+    generateLabels();
     drawToSrc();
     URL.revokeObjectURL(url);
   };
@@ -341,6 +375,9 @@ function applyEffect() {
     const blockSize = getVal('block');
     effectMosaic(srcData, blockSize);
   }
+
+  if (document.getElementById('showGrid').checked)   drawGrid(W, H);
+  if (document.getElementById('showLabels').checked) drawLabels(W, H);
 }
 
 function effectGlitch(srcData, intensity, sliceCount, balance) {
@@ -384,6 +421,44 @@ function effectMosaic(srcData, size) {
   }
 }
 
+// ---- Grid overlay ----
+function drawGrid(W, H) {
+  const cols = 8, rows = 8;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 0.5;
+  for (let c = 1; c < cols; c++) {
+    ctx.beginPath(); ctx.moveTo(W / cols * c, 0); ctx.lineTo(W / cols * c, H); ctx.stroke();
+  }
+  for (let r = 1; r < rows; r++) {
+    ctx.beginPath(); ctx.moveTo(0, H / rows * r); ctx.lineTo(W, H / rows * r); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---- AI Labels overlay ----
+function drawLabels(W, H) {
+  ctx.save();
+  ctx.font = '10px monospace';
+  labelPositions.forEach(({ x, y, label, value }) => {
+    const px = x / 100 * W;
+    const py = y / 100 * H;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 12, py - 8); ctx.stroke();
+    const tw = ctx.measureText(label).width + 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(px + 12, py - 20, tw, 22);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, px + 16, py - 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText(`${value}+`, px + 16, py - 1);
+  });
+  ctx.restore();
+}
+
 // ---- Sliders ----
 function getVal(id) { return parseInt(document.getElementById(id).value, 10); }
 
@@ -401,6 +476,10 @@ wire('balance',   'balanceVal',   v => {
   return h === 50 ? '均等' : h > 50 ? `垂直 ${h}%` : `水平 ${100-h}%`;
 });
 wire('block', 'blockVal', v => v + 'px');
+
+['showGrid','showLabels'].forEach(id =>
+  document.getElementById(id).addEventListener('change', scheduleRender)
+);
 
 let renderTimer = null;
 function scheduleRender() {
