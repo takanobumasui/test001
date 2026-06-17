@@ -439,7 +439,7 @@ function drawGrid(W, H) {
 // ---- AI Labels overlay ----
 function drawLabels(W, H) {
   ctx.save();
-  ctx.font = '10px monospace';
+  ctx.font = '20px monospace';
   labelPositions.forEach(({ x, y, label, value }) => {
     const px = x / 100 * W;
     const py = y / 100 * H;
@@ -448,13 +448,13 @@ function drawLabels(W, H) {
     ctx.strokeStyle = 'rgba(255,255,255,0.45)';
     ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 12, py - 8); ctx.stroke();
-    const tw = ctx.measureText(label).width + 8;
+    const tw = ctx.measureText(label).width + 10;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(px + 12, py - 20, tw, 22);
+    ctx.fillRect(px + 12, py - 38, tw, 42);
     ctx.fillStyle = '#fff';
-    ctx.fillText(label, px + 16, py - 10);
+    ctx.fillText(label, px + 16, py - 20);
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText(`${value}+`, px + 16, py - 1);
+    ctx.fillText(`${value}+`, px + 16, py - 2);
   });
   ctx.restore();
 }
