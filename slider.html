@@ -276,7 +276,7 @@ let cocoModel = null;
 async function ensureModel() {
   if (cocoModel) return cocoModel;
   setStatus('AIモデル読み込み中...');
-  cocoModel = await cocoSsd.load();
+  cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
   return cocoModel;
 }
 
@@ -285,12 +285,24 @@ async function detectObjects() {
   try {
     const model = await ensureModel();
     const W = srcCanvas.width, H = srcCanvas.height;
-    const preds = await model.detect(srcCanvas);
+
+    // 検出用に最大640pxに縮小してメモリを節約
+    const MAX = 640;
+    const scale = Math.min(1, MAX / Math.max(W, H));
+    const dW = Math.round(W * scale), dH = Math.round(H * scale);
+    let detCanvas = srcCanvas;
+    if (scale < 1) {
+      detCanvas = document.createElement('canvas');
+      detCanvas.width = dW; detCanvas.height = dH;
+      detCanvas.getContext('2d').drawImage(srcCanvas, 0, 0, dW, dH);
+    }
+
+    const preds = await model.detect(detCanvas);
     labelPositions = preds.map(p => ({
-      fx: p.bbox[0] / W,
-      fy: p.bbox[1] / H,
-      fw: p.bbox[2] / W,
-      fh: p.bbox[3] / H,
+      fx: p.bbox[0] / dW,
+      fy: p.bbox[1] / dH,
+      fw: p.bbox[2] / dW,
+      fh: p.bbox[3] / dH,
       label: p.class.toUpperCase(),
       score: Math.round(p.score * 100)
     }));
@@ -298,7 +310,7 @@ async function detectObjects() {
   } catch (e) {
     console.error(e);
     labelPositions = [];
-    setStatus('');
+    setStatus('検出エラー');
   }
   applyEffect();
 }
