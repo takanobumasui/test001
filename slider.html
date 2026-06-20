@@ -20,13 +20,9 @@
       background: #fff;
       border-bottom: 1px solid #e5e5ea;
       padding: 16px 24px;
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
     }
     header h1 { font-size: 18px; font-weight: 700; font-family: 'Fira Code', monospace; }
     header h1 span { color: #007aff; }
-    header p { font-size: 12px; color: #8e8e93; }
 
     .layout {
       display: flex;
@@ -66,10 +62,9 @@
       transition: opacity .15s;
     }
     .btn:active { opacity: .7; }
-    .btn-dark  { background: #1c1c1e; color: #fff; }
-    .btn-gray  { background: #f2f2f7; color: #1c1c1e; margin-top: 8px; }
-    .btn-blue  { background: #007aff; color: #fff; }
-    .btn-blue.active, .btn-gray.active { outline: 2px solid #007aff; }
+    .btn-dark { background: #1c1c1e; color: #fff; }
+    .btn-gray { background: #f2f2f7; color: #1c1c1e; margin-top: 8px; }
+    .btn-blue { background: #007aff; color: #fff; }
 
     .mode-row { display: flex; gap: 8px; }
     .mode-row .btn { flex: 1; margin-top: 0; font-size: 15px; padding: 12px; }
@@ -101,6 +96,16 @@
     }
 
     .params { display: flex; flex-direction: column; gap: 16px; }
+
+    #fileInput { display: none; }
+    input[type=checkbox] { width: 18px; height: 18px; accent-color: #007aff; cursor: pointer; }
+
+    .status-badge {
+      font-size: 11px;
+      color: #007aff;
+      font-family: 'Fira Code', monospace;
+      min-height: 16px;
+    }
 
     /* ---- Canvas area ---- */
     .canvas-area {
@@ -141,9 +146,6 @@
     }
     .drop-hint svg { opacity: .35; }
     .drop-hint small { font-size: 12px; color: #c7c7cc; }
-
-    #fileInput { display: none; }
-    input[type=checkbox] { width: 18px; height: 18px; accent-color: #007aff; cursor: pointer; }
 
     @media (max-width: 680px) {
       .layout { flex-direction: column; }
@@ -186,38 +188,31 @@
     <div>
       <div class="section-label">パラメータ</div>
       <div class="params">
-
-        <!-- グリッチ用 -->
         <div id="paramIntensity" class="slider-row">
           <div class="slider-header">
             <span>強度</span><span class="val" id="intensityVal">50%</span>
           </div>
           <input type="range" id="intensity" min="0" max="100" value="50">
         </div>
-
         <div id="paramSlices" class="slider-row">
           <div class="slider-header">
             <span>スライス数</span><span class="val" id="slicesVal">5</span>
           </div>
           <input type="range" id="slices" min="1" max="20" value="5">
         </div>
-
         <div id="paramBalance" class="slider-row">
           <div class="slider-header">
             <span>バランス</span>
-            <span class="val" id="balanceVal">水平 / 垂直</span>
+            <span class="val" id="balanceVal">均等</span>
           </div>
           <input type="range" id="balance" min="0" max="100" value="50">
         </div>
-
-        <!-- モザイク用 -->
         <div id="paramBlock" class="slider-row" style="display:none">
           <div class="slider-header">
             <span>ブロックサイズ</span><span class="val" id="blockVal">20px</span>
           </div>
           <input type="range" id="block" min="2" max="80" value="20">
         </div>
-
       </div>
     </div>
 
@@ -234,6 +229,7 @@
           <input type="checkbox" id="showLabels" checked>
         </label>
       </div>
+      <div id="detectionStatus" class="status-badge" style="margin-top:8px"></div>
     </div>
 
     <!-- 保存 -->
@@ -264,28 +260,51 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script>
 let srcCanvas = document.createElement('canvas');
 let srcCtx    = srcCanvas.getContext('2d');
 let originalImage = null;
 let rotation  = 0;
 let currentMode = 'glitch';
-
-const LABELS = [
-  'ORGANIC','CRISP','BOTANICAL','ISOLATED','TREELIKE',
-  'VERDANT','CLUSTERED','SCULPTURAL','LAYERED','TEXTURED',
-  'DENSE','VIBRANT','NATURAL','GEOMETRIC','COLORFUL',
-  'DYNAMIC','STRUCTURED','COMPLEX','MINIMAL','GLITCH'
-];
 let labelPositions = [];
 
-function generateLabels() {
-  labelPositions = LABELS.map((label, i) => ({
-    x: 5 + Math.random() * 85,
-    y: 5 + Math.random() * 85,
-    label,
-    value: Math.floor(20 + Math.random() * 60)
-  }));
+// ---- COCO-SSD model ----
+let cocoModel = null;
+
+async function ensureModel() {
+  if (cocoModel) return cocoModel;
+  setStatus('AIモデル読み込み中...');
+  cocoModel = await cocoSsd.load();
+  return cocoModel;
+}
+
+async function detectObjects() {
+  setStatus('解析中...');
+  try {
+    const model = await ensureModel();
+    const W = srcCanvas.width, H = srcCanvas.height;
+    const preds = await model.detect(srcCanvas);
+    labelPositions = preds.map(p => ({
+      fx: p.bbox[0] / W,
+      fy: p.bbox[1] / H,
+      fw: p.bbox[2] / W,
+      fh: p.bbox[3] / H,
+      label: p.class.toUpperCase(),
+      score: Math.round(p.score * 100)
+    }));
+    setStatus(preds.length ? `${preds.length}個を検出` : '検出なし');
+  } catch (e) {
+    console.error(e);
+    labelPositions = [];
+    setStatus('');
+  }
+  applyEffect();
+}
+
+function setStatus(msg) {
+  document.getElementById('detectionStatus').textContent = msg;
 }
 
 const canvas = document.getElementById('canvas');
@@ -312,8 +331,9 @@ function loadFile(file) {
   img.onload = () => {
     originalImage = img;
     rotation = 0;
-    generateLabels();
+    labelPositions = [];
     drawToSrc();
+    detectObjects();
     URL.revokeObjectURL(url);
   };
   img.src = url;
@@ -336,7 +356,9 @@ function drawToSrc() {
 
 function rotateImage() {
   rotation = (rotation + 90) % 360;
+  labelPositions = [];
   drawToSrc();
+  detectObjects();
 }
 
 // ---- Mode ----
@@ -344,13 +366,11 @@ function setMode(mode) {
   currentMode = mode;
   document.getElementById('btnGlitch').className = mode === 'glitch' ? 'btn btn-blue' : 'btn btn-gray';
   document.getElementById('btnMosaic').className = mode === 'mosaic' ? 'btn btn-blue' : 'btn btn-gray';
-
   const isGlitch = mode === 'glitch';
   document.getElementById('paramIntensity').style.display = isGlitch ? '' : 'none';
   document.getElementById('paramSlices').style.display    = isGlitch ? '' : 'none';
   document.getElementById('paramBalance').style.display   = isGlitch ? '' : 'none';
   document.getElementById('paramBlock').style.display     = isGlitch ? 'none' : '';
-
   applyEffect();
 }
 
@@ -368,13 +388,9 @@ function applyEffect() {
   const srcData = srcCtx.getImageData(0, 0, W, H);
 
   if (currentMode === 'glitch') {
-    const intensity = getVal('intensity') / 100;
-    const slices    = getVal('slices');
-    const balance   = getVal('balance') / 100;
-    effectGlitch(srcData, intensity, slices, balance);
+    effectGlitch(srcData, getVal('intensity') / 100, getVal('slices'), getVal('balance') / 100);
   } else {
-    const blockSize = getVal('block');
-    effectMosaic(srcData, blockSize);
+    effectMosaic(srcData, getVal('block'));
   }
 
   if (document.getElementById('showGrid').checked)   drawGrid(W, H);
@@ -384,18 +400,13 @@ function applyEffect() {
 function effectGlitch(srcData, intensity, sliceCount, balance) {
   const W = canvas.width, H = canvas.height;
   ctx.putImageData(srcData, 0, 0);
-
   for (let i = 0; i < sliceCount; i++) {
-    const y = Math.random() * H;
-    const h = (Math.random() * H / sliceCount) * 2;
-    const shiftX = (Math.random() - 0.5) * W * intensity * 0.5 * (balance >= 0.5 ? (balance - 0.5) * 2 : 0.1);
-    const shiftY = (Math.random() - 0.5) * H * intensity * 0.3 * (balance <= 0.5 ? (0.5 - balance) * 2 : 0.1);
-
-    const slice = ctx.getImageData(0, y, W, h);
-    ctx.putImageData(slice, shiftX, y + shiftY);
+    const y  = Math.random() * H;
+    const h  = (Math.random() * H / sliceCount) * 2;
+    const sx = (Math.random() - 0.5) * W * intensity * 0.5 * (balance >= 0.5 ? (balance - 0.5) * 2 : 0.1);
+    const sy = (Math.random() - 0.5) * H * intensity * 0.3 * (balance <= 0.5 ? (0.5 - balance) * 2 : 0.1);
+    ctx.putImageData(ctx.getImageData(0, y, W, h), sx, y + sy);
   }
-
-  // RGB color aberration
   if (intensity > 0.15) {
     const shift = intensity * 18;
     ctx.globalCompositeOperation = 'screen';
@@ -437,26 +448,46 @@ function drawGrid(W, H) {
   ctx.restore();
 }
 
-// ---- AI Labels overlay ----
+// ---- Detection Labels overlay ----
 function drawLabels(W, H) {
+  if (!labelPositions.length) return;
   ctx.save();
-  ctx.font = '20px monospace';
-  labelPositions.forEach(({ x, y, label, value }) => {
-    const px = x / 100 * W;
-    const py = y / 100 * H;
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 12, py - 8); ctx.stroke();
-    const tw = ctx.measureText(label).width + 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(px + 12, py - 38, tw, 42);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, px + 16, py - 20);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText(`${value}+`, px + 16, py - 2);
+  ctx.font = 'bold 20px "Fira Code", monospace';
+
+  labelPositions.forEach(({ fx, fy, fw, fh, label, score }) => {
+    const x = fx * W, y = fy * H, w = fw * W, h = fh * H;
+
+    // Bounding box
+    ctx.strokeStyle = 'rgba(0, 230, 120, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+
+    // Corner accent
+    const cs = Math.min(w, h, 20);
+    ctx.strokeStyle = '#00e678';
+    ctx.lineWidth = 3;
+    ['tl','tr','bl','br'].forEach(corner => {
+      const cx = corner.includes('l') ? x : x + w;
+      const cy = corner.includes('t') ? y : y + h;
+      const dx = corner.includes('l') ? cs : -cs;
+      const dy = corner.includes('t') ? cs : -cs;
+      ctx.beginPath();
+      ctx.moveTo(cx + dx, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy + dy);
+      ctx.stroke();
+    });
+
+    // Label pill
+    const text = `${label}  ${score}%`;
+    const tw = ctx.measureText(text).width + 14;
+    const lx = x, ly = y > 32 ? y - 32 : y + h + 2;
+    ctx.fillStyle = 'rgba(0, 230, 120, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(lx, ly, tw, 28, 4);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.fillText(text, lx + 7, ly + 20);
   });
+
   ctx.restore();
 }
 
@@ -473,8 +504,8 @@ function wire(id, labelId, fmt) {
 wire('intensity', 'intensityVal', v => v + '%');
 wire('slices',    'slicesVal',    v => v);
 wire('balance',   'balanceVal',   v => {
-  const h = Math.round(v), vv = 100 - Math.round(v);
-  return h === 50 ? '均等' : h > 50 ? `垂直 ${h}%` : `水平 ${100-h}%`;
+  const n = Math.round(v);
+  return n === 50 ? '均等' : n > 50 ? `垂直 ${n}%` : `水平 ${100 - n}%`;
 });
 wire('block', 'blockVal', v => v + 'px');
 
@@ -494,11 +525,8 @@ async function saveImage() {
   canvas.toBlob(async (blob) => {
     const file = new File([blob], 'effect.jpg', { type: 'image/jpeg' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: '画像エフェクト' });
-      } catch (e) {
-        if (e.name !== 'AbortError') exportImg('jpg');
-      }
+      try { await navigator.share({ files: [file], title: '画像エフェクト' }); }
+      catch (e) { if (e.name !== 'AbortError') exportImg('jpg'); }
     } else {
       exportImg('jpg');
     }
