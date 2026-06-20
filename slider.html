@@ -276,7 +276,7 @@ let cocoModel = null;
 async function ensureModel() {
   if (cocoModel) return cocoModel;
   setStatus('AIモデル読み込み中...');
-  cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+  cocoModel = await cocoSsd.load({ base: 'mobilenet_v2' });
   return cocoModel;
 }
 
