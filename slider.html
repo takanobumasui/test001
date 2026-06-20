@@ -471,13 +471,13 @@ function drawLabels(W, H) {
 
     // Bounding box
     ctx.strokeStyle = 'rgba(0, 230, 120, 0.9)';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 4;
     ctx.strokeRect(x, y, w, h);
 
     // Corner accent
     const cs = Math.min(w, h, 20);
     ctx.strokeStyle = '#00e678';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 5;
     ['tl','tr','bl','br'].forEach(corner => {
       const cx = corner.includes('l') ? x : x + w;
       const cy = corner.includes('t') ? y : y + h;
