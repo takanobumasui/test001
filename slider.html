@@ -464,7 +464,7 @@ function drawGrid(W, H) {
 function drawLabels(W, H) {
   if (!labelPositions.length) return;
   ctx.save();
-  ctx.font = 'bold 20px "Fira Code", monospace';
+  ctx.font = 'bold 40px "Fira Code", monospace';
 
   labelPositions.forEach(({ fx, fy, fw, fh, label, score }) => {
     const x = fx * W, y = fy * H, w = fw * W, h = fh * H;
@@ -490,14 +490,14 @@ function drawLabels(W, H) {
 
     // Label pill
     const text = `${label}  ${score}%`;
-    const tw = ctx.measureText(text).width + 14;
-    const lx = x, ly = y > 32 ? y - 32 : y + h + 2;
+    const tw = ctx.measureText(text).width + 18;
+    const lx = x, ly = y > 56 ? y - 56 : y + h + 2;
     ctx.fillStyle = 'rgba(0, 230, 120, 0.9)';
     ctx.beginPath();
-    ctx.roundRect(lx, ly, tw, 28, 4);
+    ctx.roundRect(lx, ly, tw, 52, 4);
     ctx.fill();
     ctx.fillStyle = '#000';
-    ctx.fillText(text, lx + 7, ly + 20);
+    ctx.fillText(text, lx + 9, ly + 38);
   });
 
   ctx.restore();
